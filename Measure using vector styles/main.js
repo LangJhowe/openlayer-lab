@@ -18,8 +18,10 @@ import {getArea, getLength} from 'ol/sphere';
 const typeSelect = document.getElementById('type');
 const showSegments = document.getElementById('segments');
 const clearPrevious = document.getElementById('clear');
+import { throttle } from 'lodash';
 
 const style = new Style({
+  zIndex: 100,
   fill: new Fill({
     color: 'rgba(255, 255, 255, 0.2)',
   }),
@@ -219,10 +221,10 @@ const vector = new VectorLayer({
 });
 
 const map = new Map({
-  layers: [ vector ],
+  layers: [ raster,vector ],// 顺序会涉及图层顺序
   target: 'map',
   view: new View({
-    center: [-11000000, 4600000],
+    center: [12564838.63, 2698440.04],
     zoom: 15,
   }),
 });
@@ -302,4 +304,53 @@ showSegments.onchange = function () {
   vector.changed();
   draw.getOverlay().changed();
 };
+
+// 绘制时鼠标移出地图,移动方向向量=鼠标坐标点 - 地图中心点
+let moveThrottle = throttle((e)=>{
+    let leavePixel = map.getEventPixel(e),
+        leaveCoord = map.getCoordinateFromPixel(leavePixel)
+  
+    let centerCoord =  map.getView().getCenter();
+  
+    //坐标项链
+    let v = [leaveCoord[0]-centerCoord[0],leaveCoord[1]-centerCoord[1]],
+        unitV = [v[0]/10,v[1]/10]
+    let nCroodLng = centerCoord[0] + unitV[0],
+        nCroodLat = centerCoord[1] + unitV[1]
+
+    // 地图未发生变化
+    // 中心点无变化
+    map.getView().animate({
+      center:  [nCroodLng,nCroodLat],// map.getCoordinateFromPixel([newx, newy]),//平移后的像素坐标转投影坐标
+      duration: 100,
+      zoom: map.getView().getZoom()//定义比例尺
+    });
+
+    // 点更新位置
+    console.log(draw);
+},100,{
+  leading: false
+})
+let timer 
+function mouseLeaveCb(e) {
+    // map.getView().setCenter([12664838.63, 2698440.04])  
+
+  function step () {
+    moveThrottle(e)
+    timer = window.requestAnimationFrame(step);
+  }
+  timer = window.requestAnimationFrame(step);
+}
+function mouseEnterCb(e) {
+  if(timer) {
+    cancelAnimationFrame(timer)
+    timer = null
+  }
+}
+let viewPort = map.getViewport()
+viewPort.addEventListener('mouseleave',mouseLeaveCb)
+viewPort.addEventListener('mouseenter',mouseEnterCb)
+
+console.log(map.getViewport());
+
 
