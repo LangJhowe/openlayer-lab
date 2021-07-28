@@ -1,0 +1,13 @@
+{
+  "name": "ol-measure",
+  "scripts": {
+    "start": "parcel index.html",
+    "build": "parcel build --public-url . index.html"
+  },
+  "devDependencies": {
+    "parcel": "^2.0.0-beta.1"
+  },
+  "dependencies": {
+    "ol": "^6.6.0"
+  }
+}
