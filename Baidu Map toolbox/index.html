@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>Measure using vector styles</title>
+    <!-- Pointer events polyfill for old browsers, see https://caniuse.com/#feat=pointer -->
+    <!-- <script src="https://unpkg.com/elm-pep"></script> -->
+    <!-- The line below is only needed for old environments like Internet Explorer and Android 4.x -->
+    <!-- <script src="https://cdn.polyfill.io/v3/polyfill.min.js?features=fetch,requestAnimationFrame,Element.prototype.classList,URL,TextDecoder,Number.isInteger"></script> -->
+    <style>
+      body{
+        margin: 0;
+        background: #eee;
+      }
+      .map {
+        background-color: #fff;
+        width: 100%;
+        height:calc(90vh - 22px);
+      }
+      #measure-start{
+        z-index: 100;
+        position: absolute;
+        top: 0;
+        left: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map" class="map"></div>
+    <div id="measure-start">
+      <button id="measure-start-btn">开始绘制</button>
+    </div>
+    <form class="form-inline">
+      <label for="type">Measurement type &nbsp;</label>
+      <select id="type">
+        <option value="LineString">Length (LineString)</option>
+        <option value="Polygon">Area (Polygon)</option>
+      </select>
+      &nbsp;&nbsp;&nbsp;&nbsp;
+      <label for="segments">Show segment lengths:&nbsp;</label>
+      <input type="checkbox" id="segments" checked />
+      &nbsp;&nbsp;&nbsp;&nbsp;
+      <label for="clear">Clear previous measure:&nbsp;</label>
+      <input type="checkbox" id="clear" checked />
+    </form>
+    <script src="main.js"></script>
+  </body>
+</html>

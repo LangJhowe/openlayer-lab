@@ -1,3 +1,4 @@
+// 官方demo
 import 'ol/ol.css';
 import Map from 'ol/Map';
 import View from 'ol/View';
@@ -20,6 +21,7 @@ const typeSelect = document.getElementById('type');
 const showSegments = document.getElementById('segments');
 const clearPrevious = document.getElementById('clear');
 import { throttle } from 'lodash';
+
 const style = new Style({
   zIndex: 100,
   fill: new Fill({
@@ -203,15 +205,15 @@ function styleFunction(feature, segments, drawType, tip,) {
     labelStyle.getText().setText(label);
     styles.push(labelStyle);
   }
-  // if (
-  //   tip &&
-  //   type === 'Point' &&
-  //   !modify.getOverlay().getSource().getFeatures().length
-  // ) {
-  //   tipPoint = geometry;
-  //   tipStyle.getText().setText(tip);
-  //   styles.push(tipStyle);
-  // }
+  if (
+    tip &&
+    type === 'Point' &&
+    !modify.getOverlay().getSource().getFeatures().length
+  ) {
+    tipPoint = geometry;
+    tipStyle.getText().setText(tip);
+    styles.push(tipStyle);
+  }
 
   return styles;
 }
@@ -312,6 +314,7 @@ showSegments.onchange = function () {
 
 // 绘制时鼠标移出地图,移动方向向量=鼠标坐标点 - 地图中心点
 let moveThrottle = throttle((e)=>{
+  console.log('%c 🥨 moveThrottle: ', 'font-size:20px;background-color: #FCA650;color:#fff;');
     let leavePixel = map.getEventPixel(e),
         leaveCoord = map.getCoordinateFromPixel(leavePixel)
   
@@ -325,11 +328,11 @@ let moveThrottle = throttle((e)=>{
 
     // 地图未发生变化
     // 中心点无变化
-    // map.getView().animate({
-    //   center:  [nCroodLng,nCroodLat],// map.getCoordinateFromPixel([newx, newy]),//平移后的像素坐标转投影坐标
-    //   duration: 100,
-    //   zoom: map.getView().getZoom()//定义比例尺
-    // });
+    map.getView().animate({
+      center:  [nCroodLng,nCroodLat],// map.getCoordinateFromPixel([newx, newy]),//平移后的像素坐标转投影坐标
+      duration: 100,
+      zoom: map.getView().getZoom()//定义比例尺
+    });
 
     // 点更新位置
     // console.log(draw);
@@ -338,6 +341,8 @@ let moveThrottle = throttle((e)=>{
 })
 let timer 
 function mouseLeaveCb(e) {
+    // map.getView().setCenter([12664838.63, 2698440.04])  
+
   function step () {
     moveThrottle(e)
     timer = window.requestAnimationFrame(step);
@@ -351,14 +356,16 @@ function mouseEnterCb(e) {
   }
 }
 let viewPort = map.getViewport()
-// viewPort.addEventListener('mouseleave',mouseLeaveCb)
-// viewPort.addEventListener('mouseenter',mouseEnterCb)
+viewPort.addEventListener('mouseleave',mouseLeaveCb)
+viewPort.addEventListener('mouseenter',mouseEnterCb)
 
 // 鼠标尺图
 viewPort.onmousemove = function() {
   this.style.cursor = `url(${ruler}),auto`
 }
-
+class MeasureItem {
+  uid
+}
 console.log(map.getViewport());
 
 

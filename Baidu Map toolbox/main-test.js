@@ -15,7 +15,7 @@ import {LineString, Point} from 'ol/geom';
 import {OSM, Vector as VectorSource} from 'ol/source';
 import {Tile as TileLayer, Vector as VectorLayer} from 'ol/layer';
 import {getArea, getLength} from 'ol/sphere';
-
+import {MeasureLine,MeasurePolygon} from './MeasureShape'
 const typeSelect = document.getElementById('type');
 const showSegments = document.getElementById('segments');
 const clearPrevious = document.getElementById('clear');
@@ -131,6 +131,16 @@ const segmentStyle = new Style({
 
 const segmentStyles = [segmentStyle];
 
+const segmentDrawingLineStyle = new Style({
+  zIndex: 100,
+  stroke: new Stroke({
+    color: 'rgba(0, 55, 0, 0.5)',
+    lineDash: [10, 10],
+    width: 2,
+  }),
+});
+const segmentDrawingLines = [segmentDrawingLineStyle]
+
 const formatLength = function (line) {
   const length = getLength(line);
   let output;
@@ -166,8 +176,7 @@ let tipPoint;
 // overlay
 // const selectOverlay
 
-function styleFunction(feature, segments, drawType, tip,) {
-
+function styleFunction({feature, segments, drawType, tip,tag}={}) {
   const styles = [style];
   const geometry = feature.getGeometry();
   const type = geometry.getType();
@@ -190,11 +199,16 @@ function styleFunction(feature, segments, drawType, tip,) {
       const label = formatLength(segment);
       if (segmentStyles.length - 1 < count) {
         segmentStyles.push(segmentStyle.clone());
+        segmentDrawingLines.push(segmentDrawingLineStyle.clone());
       }
       const segmentPoint = new Point(segment.getCoordinateAt(0.5));
       segmentStyles[count].setGeometry(segmentPoint);
       segmentStyles[count].getText().setText(label);
       styles.push(segmentStyles[count]);
+
+      segmentDrawingLines[count].setGeometry(segment)
+      styles.push(segmentDrawingLines[count]);
+
       count++;
     });
   }
@@ -219,7 +233,7 @@ function styleFunction(feature, segments, drawType, tip,) {
 const vector = new VectorLayer({
   source: source,
   style: function (feature) {
-    return styleFunction(feature, showSegments.checked);
+    return styleFunction({feature, segments:showSegments.checked,tag: 'layer'});
   },
 });
 
@@ -249,26 +263,32 @@ function addInteraction() {
     source: source,
     type: drawType,
     style: function (feature) {
-      return styleFunction(feature, showSegments.checked, drawType, tip);
+      return styleFunction({feature, segments:showSegments.checked, drawType, tip,tag: 'draw'});
     },
   });
   draw.on('drawstart', function () {
+    drawing = true
     if (clearPrevious.checked) {
       source.clear();
     }
     modify.setActive(false);
     tip = activeTip;
+
+    viewPort.addEventListener('mouseleave',mouseLeaveCb)
+    viewPort.addEventListener('mouseenter',mouseEnterCb)
   });
-  draw.on('change', function () {
-    console.log('draw change');
-  })
   draw.on('drawend', function () {
+    drawing = false
     modifyStyle.setGeometry(tipPoint);
     modify.setActive(true);
     map.once('pointermove', function () {
       modifyStyle.setGeometry();
     });
     tip = idleTip;
+
+    viewPort.removeEventListener('mouseleave',mouseLeaveCb)
+    viewPort.removeEventListener('mouseenter',mouseEnterCb)
+    mouseEnterCb()
   });
   modify.setActive(true);
   map.addInteraction(draw);
@@ -303,7 +323,7 @@ typeSelect.onchange = function () {
   addInteraction();
 };
 
-addInteraction();
+// addInteraction();
 
 showSegments.onchange = function () {
   vector.changed();
@@ -331,6 +351,8 @@ let moveThrottle = throttle((e)=>{
     //   zoom: map.getView().getZoom()//定义比例尺
     // });
 
+    // 绘制中隐藏绘制线
+
     // 点更新位置
     // console.log(draw);
 },100,{
@@ -338,26 +360,53 @@ let moveThrottle = throttle((e)=>{
 })
 let timer 
 function mouseLeaveCb(e) {
+  console.log('%c 🥡 mouseLeaveCb: ', 'font-size:20px;background-color: #F5CE50;color:#fff');
+  outsideDrawing = true
+
+  console.log(vector.getSource().getFeatures());
+  console.log(draw);
+
+  console.log(draw.getProperties());
+  console.log(draw.source);
+  console.log(draw.getOverlay());
+  console.log(draw.get('sketchCoords'));
+  console.log(draw.get('active'));
+  console.log(draw.getKeys());
   function step () {
     moveThrottle(e)
     timer = window.requestAnimationFrame(step);
   }
   timer = window.requestAnimationFrame(step);
 }
-function mouseEnterCb(e) {
+function mouseEnterCb() {
+  console.log('%c 🥠 mouseEnterCb: ', 'font-size:20px;background-color: #6EC1C2;color:#fff;',);
+  outsideDrawing = false
   if(timer) {
     cancelAnimationFrame(timer)
     timer = null
   }
 }
 let viewPort = map.getViewport()
-// viewPort.addEventListener('mouseleave',mouseLeaveCb)
-// viewPort.addEventListener('mouseenter',mouseEnterCb)
 
-// 鼠标尺图
-viewPort.onmousemove = function() {
-  this.style.cursor = `url(${ruler}),auto`
-}
+
+
+// 开始绘制按钮
+let measureStart = document.getElementById('measure-start-btn')
+let mesauring = false
+let drawing = false
+let outsideDrawing = false // drawing时移除地图
+measureStart.addEventListener('click',()=>{
+  if(mesauring) {
+    draw.finishDrawing()
+    map.removeInteraction(draw);
+    viewPort.style.cursor = ``
+  } else {
+    viewPort.style.cursor = `url(${ruler}),auto` // 鼠标尺图
+    addInteraction()
+  }
+  mesauring = !mesauring
+  measureStart.innerHTML = mesauring ? '结束绘制':'开始绘制'
+})
 
 console.log(map.getViewport());
 
