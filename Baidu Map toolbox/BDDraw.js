@@ -1,4 +1,4 @@
-import { throttle } from 'lodash'
+import { map, throttle } from 'lodash'
 import GeometryType from 'ol/geom/geometrytype'
 import { Draw, Modify } from 'ol/interaction'
 import {LineString, Point} from 'ol/geom';
@@ -13,10 +13,10 @@ import {
 } from 'ol/style';
 import VectorSource from 'ol/source/vector'
 import VectorLayer from 'ol/layer/vector'
+import { DrawLine, DrawPolygon } from './DrawShape'
+import EventType from 'ol/src/events/EventType'
 // 仿web百度地图交互 拓展class
 function styleFunction({feature, segments, drawType, tip,tag,ins}={}) {
-  // console.log('BDDtag',tag);
-  // console.log('BDDtag',tag,ins,segments);
   let {segmentStyles,segmentDrawingLines} = ins
   const styles = [];
   const geometry = feature.getGeometry();
@@ -43,27 +43,88 @@ function styleFunction({feature, segments, drawType, tip,tag,ins}={}) {
         segmentDrawingLines.push(segmentDrawingLineStyle.clone());
       }
       if(ins.outsideViewportDrawing) {
-        if(count == line.flatCoordinates.length/2 - 2) {
+        // if(count == line.flatCoordinates.length/2 - 2) {
+        //   // 绘制最后一条边 颜色改变(百度交互,隐藏)
+        //   segmentDrawingLines[count].setStroke(new Stroke({
+        //     color: 'rgba(0, 0, 0, 0)',
+        //     lineDash: [10, 10],
+        //     width: 2,
+        //   }))
 
-          // 绘制最后一条边 颜色改变(百度交互,隐藏)
-          // segmentDrawingLines.push(new Style({
-          //   stroke: new Stroke({
-          //     color: 'rgba(0, 0, 0, 0)',
-          //     lineDash: [10, 10],
-          //     width: 2,
-          //   })
-          // }));
-          segmentDrawingLines[count].setStroke(new Stroke({
-            color: 'rgba(0, 0, 0, 0)',
-            lineDash: [10, 10],
-            width: 2,
-          }))
-        } else {
-          // 其他边,重新设为默认值
-          segmentDrawingLines[count].setStroke(lineStroke)
-        }
+        //   segmentStyles[count].setText(new Text({
+        //     font: '12px Calibri,sans-serif',
+        //     fill: new Fill({
+        //       color: 'rgba(255, 255, 255, 0)',
+        //     }),
+        //     backgroundFill: new Fill({
+        //       color: 'rgba(0, 0, 0, 0)',
+        //     }),
+        //     padding: [2, 2, 2, 2],
+        //     textBaseline: 'bottom',
+        //     offsetY: -12,
+        //   }))
+        //   segmentStyles[count].setImage(new RegularShape({
+        //     radius: 6,
+        //     points: 3,
+        //     angle: Math.PI,
+        //     displacement: [0, 8],
+        //     fill: new Fill({
+        //       color: 'rgba(0, 0, 0, 0)',
+        //     }),
+        //   }))
+        // } else {
+        //   // 其他边,重新设为默认值
+        //   segmentDrawingLines[count].setStroke(lineStroke)
+
+        //   segmentStyles[count].setText(new Text({
+        //     font: '12px Calibri,sans-serif',
+        //     fill: new Fill({
+        //       color: 'rgba(255, 255, 255, 1)',
+        //     }),
+        //     backgroundFill: new Fill({
+        //       color: 'rgba(0, 0, 0, 0.4)',
+        //     }),
+        //     padding: [2, 2, 2, 2],
+        //     textBaseline: 'bottom',
+        //     offsetY: -12,
+        //   }))
+        //   segmentStyles[count].setImage(new RegularShape({
+        //     radius: 6,
+        //     points: 3,
+        //     angle: Math.PI,
+        //     displacement: [0, 8],
+        //     fill: new Fill({
+        //       color: 'rgba(0, 0, 0, 0.4)',
+        //     }),
+        //   }))
+        // }
+
+        // 最后一个边距隐藏
+
       } else {
         segmentDrawingLines[count].setStroke(lineStroke)
+
+        segmentStyles[count].setText(new Text({
+          font: '12px Calibri,sans-serif',
+          fill: new Fill({
+            color: 'rgba(255, 255, 255, 1)',
+          }),
+          backgroundFill: new Fill({
+            color: 'rgba(0, 0, 0, 0.4)',
+          }),
+          padding: [2, 2, 2, 2],
+          textBaseline: 'bottom',
+          offsetY: -12,
+        }))
+        segmentStyles[count].setImage(new RegularShape({
+          radius: 6,
+          points: 3,
+          angle: Math.PI,
+          displacement: [0, 8],
+          fill: new Fill({
+            color: 'rgba(0, 0, 0, 0.4)',
+          }),
+        }))
       }
 
       const segmentPoint = new Point(segment.getCoordinateAt(0.5));
@@ -76,12 +137,12 @@ function styleFunction({feature, segments, drawType, tip,tag,ins}={}) {
 
       count++;
     });
-    // console.log(segmentDrawingLines);
+
   }
   if (label) {
-    labelStyle.setGeometry(point);
-    labelStyle.getText().setText(label);
-    styles.push(labelStyle);
+    // labelStyle.setGeometry(point);
+    // labelStyle.getText().setText(label);
+    // styles.push(labelStyle);
   }
   // if (
   //   tip &&
@@ -187,7 +248,7 @@ const segmentStyle = new Style({
   }),
 });
 const lineStroke = new Stroke({
-  color: 'rgba(0, 255, 255, 0.5)',
+  color: 'rgba(100, 255, 0, 1)',
   lineDash: [10, 10],
   width: 2,
 })
@@ -199,6 +260,7 @@ class BDDraw extends Draw {
   /**
    * 绘图时是否移除地图
    */
+  drawing = false
   outsideViewportDrawing = false
   segmentStyles = [segmentStyle]
   segmentDrawingLines = [segmentDrawingLineStyle]
@@ -206,6 +268,8 @@ class BDDraw extends Draw {
   mapLayer_ = null
   segments_ = true
   modify = null
+  shapes = []
+  timer = null
   constructor(options) {
     let isSegmentShow = options.segments_ == void 0 || options.segments_
     if(!options.souce) {
@@ -243,22 +307,74 @@ class BDDraw extends Draw {
       let ins = this
       let mouseLeaveExtend = mouseLeaveCb.bind(null,ins),
           mouseEnterExtend = mouseEnterCb.bind(null,ins)
-      this.on('drawstart',function() {
+      this.on('drawstart',function(evt) {
+        ins.drawing = true
         viewPort.addEventListener('mouseleave',mouseLeaveExtend)
         viewPort.addEventListener('mouseenter',mouseEnterExtend)
+
+        if(ins.type_ === GeometryType.LINE_STRING) {
+          ins.shapes.push(new DrawLine({feature:evt.feature,draw: ins}))
+        } else if(ins.type_ === GeometryType.POLYGON) {
+          ins.shapes.push(new DrawPolygon({feature:evt.feature,draw: ins}))
+        }
       })
   
       this.on('drawend', function() {
+        ins.drawing = false
         viewPort.removeEventListener('mouseleave',mouseLeaveExtend)
         viewPort.removeEventListener('mouseenter',mouseEnterExtend)
       })
-      
+
       // 地图添加 图层
       map.addLayer(this.mapLayer_)
       map.addInteraction(this.modify)
       // map.
     }
     super.setMap(map);
+  }
+
+  // overwrite
+  // event.type [pointdown,pointup,pointmove,click,dbclick]
+  handleEvent(event) {
+    if(event.type == EventType.CONTEXTMENU && this.drawing){
+      // 右键修改为取消现在的点 并绘制完成
+      event.originalEvent.preventDefault(); // 无效,还是会多一个点,需要removeLastPoint
+      event.originalEvent.stopPropagation();// 无效,还是会多一个点,需要removeLastPoint
+      this.cancelDrawing()
+
+      return
+    }
+    super.handleEvent(event)
+  }
+
+  // 绘制时右键取消
+
+  cancelDrawing() {
+    let map = this.getMap()
+    this.drawing = false
+    if(this.type_ == GeometryType.LINE_STRING) {
+      this.removeLastPoint()
+      if(this.sketchCoords_.length == 2) {
+        this.abortDrawing()
+        let shape = this.shapes.pop()
+        shape.nodes.forEach((n)=>{
+          map.removeOverlay(n.overlay)
+        })
+      } else {
+        this.finishDrawing()
+      }
+    } else if(this.type_ == GeometryType.POLYGON){
+      this.removeLastPoint()
+      if(this.sketchLineCoords_.length <= 3) {
+        this.abortDrawing()
+        let shape = this.shapes.pop()
+        shape.nodes.forEach((n)=>{
+          map.removeOverlay(n.overlay)
+        })
+      } else {
+        this.finishDrawing()
+      }
+    }
   }
 }
 const outsideMoveDuration = 100 // 鼠标在地图外 使地图移动的动画过渡时间
@@ -276,10 +392,10 @@ let moveThrottle = throttle((e,ins)=>{
         nCroodLat = centerCoord[1] + unitV[1]
 
     // 地图移动过渡
-    map.getView().animate({
-      center:  [nCroodLng,nCroodLat],
-      duration: outsideMoveDuration,
-    });
+    // map.getView().animate({
+    //   center:  [nCroodLng,nCroodLat],
+    //   duration: outsideMoveDuration,
+    // });
 
     // 绘制中隐藏绘制线
     // 点更新位置
@@ -294,16 +410,17 @@ function mouseLeaveCb(ins,e) {
   
   function step () {
     moveThrottle(e,ins)
-    timer = window.requestAnimationFrame(step);
+    ins.timer = window.requestAnimationFrame(step);
   }
-  timer = window.requestAnimationFrame(step);
+  ins.timer = window.requestAnimationFrame(step);
 }
 function mouseEnterCb(ins) {
   ins.outsideViewportDrawing = false
+  ins.getOverlay().changed() // 一定执行
 
-  if(timer) {
-    cancelAnimationFrame(timer)
-    timer = null
+  if(ins.timer) {
+    cancelAnimationFrame(ins.timer)
+    ins.timer = null
   }
 }
 
