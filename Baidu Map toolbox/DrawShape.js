@@ -1,6 +1,27 @@
+import { MapBrowserEvent } from 'ol'
+import { MapEvent } from 'ol'
 import { Overlay } from 'ol'
 import GeometryType from 'ol/geom/geometrytype'
-
+import MapBrowserEventType from 'ol/src/MapBrowserEventType'
+import MapEventType from 'ol/src/MapEventType'
+function enableLongPress(target, threshold) {
+  var timer;
+  var timeOut;
+  var evt = document.createEvent('Event');
+  evt.initEvent('longpress', true, true);
+  target.addEventListener('mousedown', function() {
+     timer = Date.now();
+     timeOut=setTimeout(function(){
+       target.dispatchEvent(evt);
+     },threshold);
+  }, false);
+  target.addEventListener('mouseup', function() {
+     if(Date.now() - timer < threshold) {
+        evt.duration = Date.now() - timer;
+        clearTimeout(timeOut);
+     }
+  }, false);
+}
 // 选取的节点
 class DrawNode {
   draw = null
@@ -13,7 +34,8 @@ class DrawNode {
     this.position = opts.position
     this.draw = opts.draw
     let ele = this.ele
-
+    enableLongPress(ele,200)
+    ele.addEventListener('longpress')
     ele.addEventListener('click',(e)=>{
       e.stopPropagation()
       e.preventDefault()
@@ -30,6 +52,29 @@ class DrawNode {
         }
       } else {
         // 拖动逻辑
+        // 拿到点击位置对应地图modify位置
+        // console.log(this.position);
+        // 构建evt
+        let map = this.draw.getMap(),
+            pixel = map.getPixelFromCoordinate(this.position),
+            originalEvent = new PointerEvent("pointerdown",{
+              pointerId: Date.now(),
+              bubbles: true,
+              cancelable: true,
+              pointerType: "touch",
+              width: 100,
+              height: 100,
+              clientX: pixel[0],
+              clientY: pixel[1],
+              isPrimary: true
+            });
+        // let evt = new MapBrowserEvent(MapBrowserEventType.POINTERDOWN,map)
+        // this.draw.modify.handleDownEvent(evt) //
+        map.getViewport().addEventListener('pointerdown',()=>{
+          console.log('asfv');
+        })
+        console.log(originalEvent);
+        map.getViewport().dispatchEvent(originalEvent)
       }
     })
     this.overlay = new Overlay({
