@@ -56,7 +56,7 @@ function addInteraction() {
   map.addInteraction(draw);
 }
 
-typeSelect.onchange = function () {
+typeSelect.onchange = function (e) {
   map.removeInteraction(draw);
   addInteraction();
 };

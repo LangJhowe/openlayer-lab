@@ -1,6 +1,6 @@
 import { map, throttle } from 'lodash'
 import GeometryType from 'ol/geom/geometrytype'
-import { Draw, Modify } from 'ol/interaction'
+import { Draw, Modify, Select } from 'ol/interaction'
 import {LineString, Point} from 'ol/geom';
 import {getArea, getLength} from 'ol/sphere';
 import {
@@ -15,6 +15,18 @@ import VectorSource from 'ol/source/vector'
 import VectorLayer from 'ol/layer/vector'
 import { DrawLine, DrawPolygon } from './DrawShape'
 import EventType from 'ol/src/events/EventType'
+/**
+ * Draw mode.  This collapses multi-part geometry types with their single-part
+ * cousins.
+ * @enum {string}
+ */
+const Mode = {
+  POINT: 'Point',
+  LINE_STRING: 'LineString',
+  POLYGON: 'Polygon',
+  CIRCLE: 'Circle',
+};
+
 // 仿web百度地图交互 拓展class
 function styleFunction({feature, segments, drawType, tip,tag,ins}={}) {
   let {segmentStyles,segmentDrawingLines} = ins
@@ -256,6 +268,10 @@ const segmentDrawingLineStyle = new Style({
   zIndex: 100,
   stroke: lineStroke
 });
+// 公用
+let modify = null
+const source = new VectorSource();
+let mapLayer = null
 class BDDraw extends Draw {
   /**
    * 绘图时是否移除地图
@@ -267,14 +283,13 @@ class BDDraw extends Draw {
 
   mapLayer_ = null
   segments_ = true
-  modify = null
   shapes = []
   timer = null
+  map = null
+  options = {}
   constructor(options) {
     let isSegmentShow = options.segments_ == void 0 || options.segments_
-    if(!options.souce) {
-      options.source = new VectorSource();
-    }
+    options.source = source
     if(!options.style) {
       options.style = function (feature) { 
         return styleFunction({feature, segments: isSegmentShow,tag: 'drawStyleFunction',ins});
@@ -282,19 +297,14 @@ class BDDraw extends Draw {
     }
     super(options)
     let ins = this
+    this.isSegmentShow = isSegmentShow
     this.segments_ = isSegmentShow
-    if(!options.mapLayer) {
-      this.mapLayer_ = new VectorLayer({
-        source: this.source_,
-        style: function (feature) {
-          return styleFunction({feature, segments: isSegmentShow,tag: 'layerStyleFunction',ins});
-        },
-        ...options.mapLayerOpts
-      });
-    } else {
-      this.mapLayer_ = options.mapLayer
+    this.options = options
+    if(!modify) {
+      modify = new Modify({source: this.source_, style: modifyStyle});
+      this.modify = modify
     }
-    this.modify = new Modify({source: this.source_, style: modifyStyle});
+    this.modify = modify
   }
 
   // overwrite
@@ -302,6 +312,7 @@ class BDDraw extends Draw {
   // 经实践,removeInteraction已解除draw.on事件,无需在考虑事件解绑问题
   setMap(map) {
     if(map) {
+      this.map = map
       // 事件
       let viewPort = map.getViewport()
       let ins = this
@@ -326,9 +337,18 @@ class BDDraw extends Draw {
       })
 
       // 地图添加 图层
-      map.addLayer(this.mapLayer_)
-      map.addInteraction(this.modify)
-      // map.
+      if(!mapLayer) {
+        mapLayer = new VectorLayer({
+          source: this.source_,
+          style: function (feature) {
+            return styleFunction({feature, segments: ins.isSegmentShow,tag: 'layerStyleFunction',ins});
+          },
+          ...this.options.mapLayerOpts
+        });
+        this.mapLayer_ = mapLayer
+        map.addLayer(this.mapLayer_)
+      }
+      map.addInteraction(modify)
     }
     super.setMap(map);
   }
@@ -374,6 +394,20 @@ class BDDraw extends Draw {
       } else {
         this.finishDrawing()
       }
+    }
+  }
+
+  removeShape(shape) {
+    let index = this.shapes.findIndex(s=>s == shape)
+    if(index > -1) {
+      let map = this.map
+      this.source_.removeFeature(shape.feature)
+      
+      shape.nodes.forEach(n=>{
+        map.removeOverlay(n.overlay)
+      })
+
+      this.shapes.splice(index,1)
     }
   }
 }
@@ -423,5 +457,27 @@ function mouseEnterCb(ins) {
     ins.timer = null
   }
 }
-
+/**
+ * Get the drawing mode.  The mode for mult-part geometries is the same as for
+ * their single-part cousins.
+ * @param {import("../geom/GeometryType.js").default} type Geometry type.
+ * @return {Mode} Drawing mode.
+ */
+function getMode(type) {
+  switch (type) {
+    case GeometryType.POINT:
+    case GeometryType.MULTI_POINT:
+      return Mode.POINT;
+    case GeometryType.LINE_STRING:
+    case GeometryType.MULTI_LINE_STRING:
+      return Mode.LINE_STRING;
+    case GeometryType.POLYGON:
+    case GeometryType.MULTI_POLYGON:
+      return Mode.POLYGON;
+    case GeometryType.CIRCLE:
+      return Mode.CIRCLE;
+    default:
+      throw new Error('Invalid type: ' + type);
+  }
+}
 export default BDDraw 

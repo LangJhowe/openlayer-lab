@@ -1,9 +1,11 @@
 import { MapBrowserEvent } from 'ol'
 import { MapEvent } from 'ol'
 import { Overlay } from 'ol'
+import GeometryLayout from 'ol/geom/geometrylayout'
 import GeometryType from 'ol/geom/geometrytype'
 import MapBrowserEventType from 'ol/src/MapBrowserEventType'
 import MapEventType from 'ol/src/MapEventType'
+let clickTimer
 function enableLongPress(target, threshold) {
   var timer;
   var timeOut;
@@ -24,23 +26,45 @@ function enableLongPress(target, threshold) {
 }
 // 选取的节点
 class DrawNode {
+  index = 0
   draw = null
   position = []
   overlay = null
   properties = {}
   ele = document.createElement('div')
   template = ``
+  shape = null
   constructor(opts) {
+    this.shape = opts.shape
     this.position = opts.position
     this.draw = opts.draw
+    this.index = opts.index
     let ele = this.ele
     enableLongPress(ele,200)
-    ele.addEventListener('longpress')
-    ele.addEventListener('click',(e)=>{
-      e.stopPropagation()
-      e.preventDefault()
-      if(!this.draw.getActive()) return 
-
+    ele.addEventListener('longpress',()=>{
+      if(!this.draw.getActive()) return
+      // 拖拽点逻辑
+      // 拿到点击位置对应地图modify位置,构建evt
+      let map = this.draw.map,
+          pixel = map.getPixelFromCoordinate(this.position),
+          originalEvent = new PointerEvent("pointerdown",{
+            pointerId: Date.now(),
+            bubbles: true,
+            cancelable: true,
+            pointerType: "touch",
+            width: 100,
+            height: 100,
+            clientX: pixel[0],
+            clientY: pixel[1],
+            isPrimary: true
+          });
+      map.getViewport().dispatchEvent(originalEvent)
+    })
+    ele.addEventListener('dblclick',()=>{
+      clearTimeout(clickTimer)
+      clickTimer = null
+      // 确认位置
+      if(!this.draw.getActive()) return
       if(this.draw.drawing) {
         let shape = this.draw.shapes[this.draw.shapes.length - 1],
         node = shape.nodes[shape.nodes.length - 1]
@@ -50,32 +74,15 @@ class DrawNode {
           this.draw.drawing = false // 提前设置drawing = false
           this.draw.finishDrawing()
         }
-      } else {
-        // 拖动逻辑
-        // 拿到点击位置对应地图modify位置
-        // console.log(this.position);
-        // 构建evt
-        let map = this.draw.getMap(),
-            pixel = map.getPixelFromCoordinate(this.position),
-            originalEvent = new PointerEvent("pointerdown",{
-              pointerId: Date.now(),
-              bubbles: true,
-              cancelable: true,
-              pointerType: "touch",
-              width: 100,
-              height: 100,
-              clientX: pixel[0],
-              clientY: pixel[1],
-              isPrimary: true
-            });
-        // let evt = new MapBrowserEvent(MapBrowserEventType.POINTERDOWN,map)
-        // this.draw.modify.handleDownEvent(evt) //
-        map.getViewport().addEventListener('pointerdown',()=>{
-          console.log('asfv');
-        })
-        console.log(originalEvent);
-        map.getViewport().dispatchEvent(originalEvent)
       }
+    })
+    ele.addEventListener('click',(e)=>{
+      clearTimeout(clickTimer)
+      clickTimer = setTimeout(() => {
+        // 删除位置
+        if(!this.draw.getActive()) return
+        this.shape.removeNode(this)
+      }, 300);
     })
     this.overlay = new Overlay({
         element: ele,
@@ -110,24 +117,23 @@ class DrawShape {
   flatCoordinates = []
   nodes = []
   label = document.createElement('div') // 显示结果的label
+  type = ''
   constructor(opts) {
     this.feature = opts.feature
     let draw = opts.draw
     this.draw = draw
     if(opts.feature) {
+      let map = draw.map
       opts.feature.on('change',(e)=>{
         if(draw) {
-          let map = draw.getMap()
-          this.flatCoordinates = opts.feature.getGeometry().flatCoordinates
-
+          this.flatCoordinates = e.target.getGeometry().flatCoordinates
           this.nodes.forEach((n)=>{
             map.removeOverlay(n.overlay)
           })
           this.nodes = []
-          if(draw.type_ == GeometryType.LINE_STRING || draw.type_ == GeometryType.POLYGON) {
+          if(this.type == GeometryType.LINE_STRING || this.type == GeometryType.POLYGON) {
             let hideCount = draw.drawing ? 1 : 0
-            if(draw.type_ == GeometryType.POLYGON) hideCount++
-
+            if(this.type == GeometryType.POLYGON) hideCount++
             for (let index = 0; index < this.flatCoordinates.length/2-hideCount; index++) {
               let dNode = new DrawNode({
                 draw: draw,
@@ -135,7 +141,9 @@ class DrawShape {
                 template: `
                   <div class="">
                   </div>
-                `
+                `,
+                shape: this,
+                index: index
               })
               this.nodes.push(dNode)
               map.addOverlay(dNode.overlay)
@@ -148,19 +156,48 @@ class DrawShape {
   getGeometry () {
     return this.feature && this.feature.getGeometry()
   }
-  cancelDraw() {
 
+  removeNode(drawNode) {
+    let node = this.nodes.splice(drawNode.index,1)
+    if(node[0]) {
+      let map = this.draw.map
+      map.removeOverlay(node[0].overlay)
+      if(this.type == GeometryType.LINE_STRING) {
+        if(this.nodes.length == 1) {
+          this.draw.removeShape(this)
+        } else {
+          let coords = this.nodes.map((n,index)=>{
+            n.index = index
+            return n.position
+          })
+          this.feature.getGeometry().setCoordinates(coords)
+          this.feature.changed()
+        }
+      } else if(this.type == GeometryType.POLYGON) {
+        if(this.nodes.length == 2) {
+          this.draw.removeShape(this)
+        } else {
+          let coordinates = this.feature.getGeometry().getCoordinates()[0]
+          let nc = coordinates.filter(c=>{
+            return c[0] !== node[0].position[0] && c[1] !== node[0].position[1]
+          })
+          this.feature.getGeometry().setCoordinates([nc])
+        }
+      }
+    }
   }
 }
 
 class DrawLine extends DrawShape{
   // feature = null
+  type = GeometryType.LINE_STRING
   constructor(opts) {
     super(opts)
   }
 }
 class DrawPolygon extends DrawShape{
   // feature = null
+  type = GeometryType.POLYGON
   constructor(opts) {
     super(opts)
   }
