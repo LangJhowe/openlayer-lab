@@ -57,8 +57,15 @@ function addInteraction() {
 }
 
 typeSelect.onchange = function (e) {
-  map.removeInteraction(draw);
-  addInteraction();
+  if(mesauring) {
+    map.removeInteraction(draw);
+    addInteraction();
+  } else {
+    if(draw) {
+      map.removeInteraction(draw);
+      draw = void 0
+    }
+  }
 };
 
 
