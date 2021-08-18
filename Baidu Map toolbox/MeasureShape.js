@@ -64,22 +64,24 @@ class MeasureNode {
     let map = this.draw.map
     enableLongPress(ele,200)
     ele.addEventListener('longpress',()=>{
-      if(!this.draw.getActive()) return
+      console.log(this.draw.getActive());
       // 拖拽点逻辑
       // 拿到点击位置对应地图modify位置,构建evt
-      let pixel = map.getPixelFromCoordinate(this.position)
-      let originalEvent = new PointerEvent("pointerdown",{
-        pointerId: Date.now(),
-        bubbles: true,
-        cancelable: true,
-        pointerType: "touch",
-        width: 100,
-        height: 100,
-        clientX: pixel[0],
-        clientY: pixel[1],
-        isPrimary: true
-      });
-      map.getViewport().dispatchEvent(originalEvent)
+      // let pixel = map.getPixelFromCoordinate(this.position)
+      // console.log('%c 🍲 pixel: ', 'font-size:20px;background-color: #4b4b4b;color:#fff;', pixel);
+      // let originalEvent = new PointerEvent("pointerdown",{
+      //   pointerId: Date.now(),
+      //   bubbles: true,
+      //   cancelable: true,
+      //   pointerType: "touch",
+      //   width: 100,
+      //   height: 100,
+      //   clientX: pixel[0],
+      //   clientY: pixel[1],
+      //   isPrimary: true
+      // });
+
+      // map.getViewport().dispatchEvent(originalEvent)
     })
     ele.addEventListener('dblclick',()=>{
       clearTimeout(clickTimer)
@@ -222,24 +224,6 @@ class MeasureShape {
       positioning: this.type == GeometryType.LINE_STRING ? 'center-left': 'center-center',
       offset: this.type == GeometryType.LINE_STRING ? [15,35] : [0,0]
     })
-    ele.addEventListener('click',()=>{
-      if(this.draw.drawing){
-        // 绘制时,鼠标移动到label内点击，执行选点
-        console.log('drawing click label');
-        // let originalEvent = new PointerEvent("pointerdown",{
-        //   pointerId: Date.now(),
-        //   bubbles: true,
-        //   cancelable: true,
-        //   pointerType: "touch",
-        //   width: 100,
-        //   height: 100,
-        //   clientX: pixel[0],
-        //   clientY: pixel[1],
-        //   isPrimary: true
-        // });
-        // map.getViewport().dispatchEvent(originalEvent)
-      }
-    })
 
   }
   initDelOverlay_() {
@@ -247,8 +231,8 @@ class MeasureShape {
     const offset = this.type === GeometryType.LINE_STRING ? [21,10] : [0,-20]
     this.delOverlay.setOffset(offset)
     let delEle = this.delOverlay.getElement()
-    delEle.addEventListener('click',()=>{
-      console.log('删除');
+    delEle.parentNode.addEventListener('click',()=>{
+      this.draw.removeShape(this)
     })
   }
   getGeometry () {
@@ -329,6 +313,13 @@ class MeasureLine extends MeasureShape{
         map.addOverlay(this.startLabel)
       }
     }
+  }
+  initDelOverlay_() {
+    super.initDelOverlay_()
+    let delEle = this.delOverlay.getElement()
+    delEle.parentNode.addEventListener('click', () => {
+      this.draw.map.removeOverlay(this.startLabel)
+    })
   }
 }
 class MeasurePolygon extends MeasureShape{

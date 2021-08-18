@@ -1,49 +1,42 @@
-import { map, throttle } from 'lodash'
-import GeometryType from 'ol/geom/geometrytype'
-import { Draw, Modify, Select } from 'ol/interaction'
-import {LineString, Point, Polygon} from 'ol/geom';
-import {getArea, getLength} from 'ol/sphere';
-import {
-  Circle as CircleStyle,
-  Fill,
-  RegularShape,
-  Stroke,
-  Style,
-  Text,
-} from 'ol/style';
-import VectorSource from 'ol/source/vector'
-import VectorLayer from 'ol/layer/vector'
+import { throttle } from 'lodash'
+import GeometryType from 'ol/geom/GeometryType'
+import { Draw, Modify } from 'ol/interaction'
+import { LineString, Point } from 'ol/geom'
+import { getArea, getLength } from 'ol/sphere'
+import { Circle as CircleStyle, Fill, RegularShape, Stroke, Style, Text } from 'ol/style'
+import { Vector as VectorLayer } from 'ol/layer'
+import { Vector as VectorSource } from 'ol/source'
 import { MeasureLine, MeasurePolygon } from './MeasureShape'
 import EventType from 'ol/src/events/EventType'
-
+GeometryType
 // 仿web百度地图交互 拓展class
-function styleFunction({feature, segments, drawType, tip,tag,ins}={}) {
-  let {segmentStyles,segmentDrawingLines} = ins
-  const styles = [];
-  const geometry = feature.getGeometry();
-  const type = geometry.getType();
-  let point, label, line;
+function styleFunction({ feature, segments, drawType, tip, tag, ins } = {}) {
+  let { segmentStyles, segmentDrawingLines } = ins
+  const styles = []
+  const geometry = feature.getGeometry()
+  const type = geometry.getType()
+  let point, label, line
   if (!drawType || drawType === type) {
     if (type === 'Polygon') {
-      point = geometry.getInteriorPoint();
-      label = formatArea(geometry);
-      line = new LineString(geometry.getCoordinates()[0]);
+      point = geometry.getInteriorPoint()
+      label = formatArea(geometry)
+      line = new LineString(geometry.getCoordinates()[0])
     } else if (type === 'LineString') {
-      point = new Point(geometry.getLastCoordinate());
-      label = formatLength(geometry);
-      line = geometry;
+      point = new Point(geometry.getLastCoordinate())
+      label = formatLength(geometry)
+      line = geometry
     }
   }
   if (segments && line) {
-    let count = 0;
+    let count = 0
     line.forEachSegment(function (a, b) {
-      const segment = new LineString([a, b]);
-      const label = formatLength(segment);
+      const segment = new LineString([a, b])
+      const label = formatLength(segment)
       if (segmentStyles.length - 1 < count) {
-        segmentStyles.push(segmentStyle.clone());
-        segmentDrawingLines.push(segmentDrawingLineStyle.clone());
+        segmentStyles.push(segmentStyle.clone())
+        segmentDrawingLines.push(segmentDrawingLineStyle.clone())
       }
-      if(ins.outsideViewportDrawing) {
+      if (ins.outsideViewportDrawing) {
         // if(count == line.flatCoordinates.length/2 - 2) {
         //   // 绘制最后一条边 颜色改变(百度交互,隐藏)
         //   segmentDrawingLines[count].setStroke(new Stroke({
@@ -51,7 +44,6 @@ function styleFunction({feature, segments, drawType, tip,tag,ins}={}) {
         //     lineDash: [10, 10],
         //     width: 2,
         //   }))
-
         //   segmentStyles[count].setText(new Text({
         //     font: '12px Calibri,sans-serif',
         //     fill: new Fill({
@@ -76,7 +68,6 @@ function styleFunction({feature, segments, drawType, tip,tag,ins}={}) {
         // } else {
         //   // 其他边,重新设为默认值
         //   segmentDrawingLines[count].setStroke(lineStroke)
-
         //   segmentStyles[count].setText(new Text({
         //     font: '12px Calibri,sans-serif',
         //     fill: new Fill({
@@ -99,9 +90,7 @@ function styleFunction({feature, segments, drawType, tip,tag,ins}={}) {
         //     }),
         //   }))
         // }
-
         // 最后一个边距隐藏
-
       } else {
         segmentDrawingLines[count].setStroke(lineStroke)
 
@@ -128,42 +117,43 @@ function styleFunction({feature, segments, drawType, tip,tag,ins}={}) {
         // }))
       }
 
-      const segmentPoint = new Point(segment.getCoordinateAt(0.5));
-      segmentStyles[count].setGeometry(segmentPoint);
-      segmentStyles[count].getText().setText(label);
+      const segmentPoint = new Point(segment.getCoordinateAt(0.5))
+      segmentStyles[count].setGeometry(segmentPoint)
+      segmentStyles[count].getText().setText(label)
 
       segmentDrawingLines[count].setGeometry(segment)
-      styles.push(segmentDrawingLines[count]); // 线段
-      styles.push(segmentStyles[count]);       // 线段文本
+      styles.push(segmentDrawingLines[count]) // 线段
+      styles.push(segmentStyles[count]) // 线段文本
 
-      count++;
-    });
+      count++
+    })
   }
-  return styles;
+  return styles
 }
 
 const formatLength = function (line) {
-  const length = getLength(line);
-  let output;
+  const length = getLength(line)
+  let output
   if (length > 100) {
-    output = Math.round((length / 1000) * 100) / 100 + ' km';
+    output = Math.round((length / 1000) * 100) / 100 + ' km'
   } else {
-    output = Math.round(length * 100) / 100 + ' m';
+    output = Math.round(length * 100) / 100 + ' m'
   }
-  return output;
-};
+  return output
+}
 
 const formatArea = function (polygon) {
-  const area = getArea(polygon);
-  let output;
+  const area = getArea(polygon)
+  let output
   if (area > 10000) {
-    output = Math.round((area / 1000000) * 100) / 100 + ' km\xB2';
+    output = Math.round((area / 1000000) * 100) / 100 + ' km\xB2'
   } else {
-    output = Math.round(area * 100) / 100 + ' m\xB2';
+    output = Math.round(area * 100) / 100 + ' m\xB2'
   }
-  return output;
-};
-const modifyStyleText = (tips = '单击新增节点') => new Text({
+  return output
+}
+const modifyStyleText = (tips = '单击新增节点') =>
+  new Text({
     text: tips,
     font: '12px Calibri,sans-serif',
     fill: new Fill({
@@ -186,8 +176,8 @@ const modifyStyle = new Style({
       color: 'rgba(255, 111, 0, 0.4)',
     }),
   }),
-  text: modifyStyleText()
-});
+  text: modifyStyleText(),
+})
 const labelStyle = new Style({
   text: new Text({
     font: '14px Calibri,sans-serif',
@@ -210,7 +200,7 @@ const labelStyle = new Style({
       color: 'rgba(0, 0, 0, 0.7)',
     }),
   }),
-});
+})
 const segmentStyle = new Style({
   zIndex: 100,
   text: new Text({
@@ -241,11 +231,11 @@ const lineStroke = new Stroke({
 })
 const segmentDrawingLineStyle = new Style({
   zIndex: 100,
-  stroke: lineStroke
-});
+  stroke: lineStroke,
+})
 // 公用
 let modify = null
-const source = new VectorSource();
+const source = new VectorSource()
 let mapLayer = null
 class BDDraw extends Draw {
   /**
@@ -266,9 +256,9 @@ class BDDraw extends Draw {
   constructor(options) {
     let isSegmentShow = options.segments_ == void 0 || options.segments_
     options.source = source
-    if(!options.style) {
-      options.style = function (feature) { 
-        return styleFunction({feature, segments: isSegmentShow,tag: 'drawStyleFunction',ins});
+    if (!options.style) {
+      options.style = function (feature) {
+        return styleFunction({ feature, segments: isSegmentShow, tag: 'drawStyleFunction', ins })
       }
     }
     super(options)
@@ -276,8 +266,8 @@ class BDDraw extends Draw {
     this.isSegmentShow = isSegmentShow
     this.segments_ = isSegmentShow
     this.options = options
-    if(!modify) {
-      modify = new BDModify({source: this.source_, style: modifyStyle});
+    if (!modify) {
+      modify = new BDModify({ source: this.source_, style: modifyStyle })
       this.modify = modify
     }
     this.modify = modify
@@ -287,65 +277,63 @@ class BDDraw extends Draw {
   // map removeInteraction 会set Null
   // 经实践,removeInteraction已解除draw.on事件,无需在考虑事件解绑问题
   setMap(map) {
-    if(map) {
+    if (map) {
       this.map = map
       // 事件
       let viewPort = map.getViewport()
       let ins = this
-      let mouseLeaveExtend = mouseLeaveCb.bind(null,ins),
-          mouseEnterExtend = mouseEnterCb.bind(null,ins)
-      this.on('drawstart',function(evt) {
+      let mouseLeaveExtend = mouseLeaveCb.bind(null, ins),
+        mouseEnterExtend = mouseEnterCb.bind(null, ins)
+      this.on('drawstart', function (evt) {
         ins.drawing = true
-        viewPort.addEventListener('mouseleave',mouseLeaveExtend)
-        viewPort.addEventListener('mouseenter',mouseEnterExtend)
+        viewPort.addEventListener('mouseleave', mouseLeaveExtend)
+        viewPort.addEventListener('mouseenter', mouseEnterExtend)
 
-        if(ins.type_ === GeometryType.LINE_STRING) {
-          ins.shapes.push(new MeasureLine({feature:evt.feature,draw: ins}))
-        } else if(ins.type_ === GeometryType.POLYGON) {
-          ins.shapes.push(new MeasurePolygon({feature:evt.feature,draw: ins}))
+        if (ins.type_ === GeometryType.LINE_STRING) {
+          ins.shapes.push(new MeasureLine({ feature: evt.feature, draw: ins }))
+        } else if (ins.type_ === GeometryType.POLYGON) {
+          ins.shapes.push(new MeasurePolygon({ feature: evt.feature, draw: ins }))
         }
       })
-  
-      this.on('drawend', function() {
+
+      this.on('drawend', function () {
         let shape = ins.shapes.slice(-1)[0]
-        if(shape) {
+        if (shape) {
           // 绘制完成添加绘图删除按键
           map.addOverlay(shape.delOverlay)
         }
         ins.drawing = false
-        viewPort.removeEventListener('mouseleave',mouseLeaveExtend)
-        viewPort.removeEventListener('mouseenter',mouseEnterExtend)
+        viewPort.removeEventListener('mouseleave', mouseLeaveExtend)
+        viewPort.removeEventListener('mouseenter', mouseEnterExtend)
       })
 
       // 地图添加 图层
-      if(!mapLayer) {
+      if (!mapLayer) {
         mapLayer = new VectorLayer({
           source: this.source_,
           style: function (feature) {
-            return styleFunction({feature, segments: ins.isSegmentShow,tag: 'layerStyleFunction',ins});
+            return styleFunction({ feature, segments: ins.isSegmentShow, tag: 'layerStyleFunction', ins })
           },
-          ...this.options.mapLayerOpts
-        });
+          ...this.options.mapLayerOpts,
+        })
         this.mapLayer_ = mapLayer
+        console.log('%c 🍆 map: ', 'font-size:20px;background-color: #465975;color:#fff;', map)
         map.addLayer(this.mapLayer_)
       }
-      map.addInteraction(modify)
-      map.on('contextmenu',BDDraw.handleContextmenu)
-    } else {
-      map.un('contextmenu',BDDraw.handleContextmenu)
+      // map.addInteraction(modify)
     }
-    super.setMap(map);
+    super.setMap(map)
   }
 
   // overwrite
   // event.type [pointdown,pointup,pointmove,click,dbclick]
   handleEvent(event) {
-    if(event.type == EventType.CONTEXTMENU && this.drawing){
-      console.log(event.type);
-      console.log(event);
+    if (event.type == EventType.CONTEXTMENU && this.drawing) {
+      console.log(event.type)
+      console.log(event)
       // 右键修改为取消现在的点 并绘制完成
-      event.preventDefault(); // 无效,还是会多一个点,需要removeLastPoint
-      event.stopPropagation();// 无效,还是会多一个点,需要removeLastPoint
+      event.preventDefault() // 无效,还是会多一个点,需要removeLastPoint
+      event.stopPropagation() // 无效,还是会多一个点,需要removeLastPoint
       this.cancelDrawing()
 
       return
@@ -358,12 +346,12 @@ class BDDraw extends Draw {
   cancelDrawing() {
     let map = this.getMap()
     this.drawing = false
-    if(this.type_ == GeometryType.LINE_STRING) {
+    if (this.type_ == GeometryType.LINE_STRING) {
       this.removeLastPoint()
-      if(this.sketchCoords_.length == 2) {
+      if (this.sketchCoords_.length == 2) {
         this.abortDrawing()
         let shape = this.shapes.pop()
-        shape.nodes.forEach((n)=>{
+        shape.nodes.forEach((n) => {
           map.removeOverlay(n.overlay)
         })
         map.removeOverlay(shape.label)
@@ -371,12 +359,12 @@ class BDDraw extends Draw {
       } else {
         this.finishDrawing()
       }
-    } else if(this.type_ == GeometryType.POLYGON){
+    } else if (this.type_ == GeometryType.POLYGON) {
       this.removeLastPoint()
-      if(this.sketchLineCoords_.length <= 3) {
+      if (this.sketchLineCoords_.length <= 3) {
         this.abortDrawing()
         let shape = this.shapes.pop()
-        shape.nodes.forEach((n)=>{
+        shape.nodes.forEach((n) => {
           map.removeOverlay(n.overlay)
         })
         map.removeOverlay(shape.label)
@@ -388,71 +376,70 @@ class BDDraw extends Draw {
   }
 
   removeShape(shape) {
-    let index = this.shapes.findIndex(s=>s == shape)
-    if(index > -1) {
+    let index = this.shapes.findIndex((s) => s == shape)
+    if (index > -1) {
       let map = this.map
       this.source_.removeFeature(shape.feature)
-      
-      shape.nodes.forEach(n=>{
+
+      shape.nodes.forEach((n) => {
         map.removeOverlay(n.overlay)
       })
-
-      this.shapes.splice(index,1)
+      map.removeOverlay(shape.label)
+      map.removeOverlay(shape.delOverlay)
+      this.shapes.splice(index, 1)
     }
   }
   setModifyActive(active) {
-    if(this.modify) {
+    if (this.modify) {
       this.modify.setActive(active)
     }
   }
-  static handleContextmenu(e) {
-    // console.log('handleContextmenu',e);
-    // e.stopPropagation()
-    // e.preventDefault()
-  }
 }
 const outsideMoveDuration = 100 // 鼠标在地图外 使地图移动的动画过渡时间
-let moveThrottle = throttle((e,ins)=>{
+let moveThrottle = throttle(
+  (e, ins) => {
     const map = ins.map
     let leavePixel = map.getEventPixel(e),
-        leaveCoord = map.getCoordinateFromPixel(leavePixel)
-  
-    let centerCoord =  map.getView().getCenter();
-  
+      leaveCoord = map.getCoordinateFromPixel(leavePixel)
+
+    let centerCoord = map.getView().getCenter()
+
     //坐标项链
-    let v = [leaveCoord[0]-centerCoord[0],leaveCoord[1]-centerCoord[1]],
-        unitV = [v[0]/10,v[1]/10]
+    let v = [leaveCoord[0] - centerCoord[0], leaveCoord[1] - centerCoord[1]],
+      unitV = [v[0] / 10, v[1] / 10]
     let nCroodLng = centerCoord[0] + unitV[0],
-        nCroodLat = centerCoord[1] + unitV[1]
+      nCroodLat = centerCoord[1] + unitV[1]
 
     // 地图移动过渡
-    // map.getView().animate({
-    //   center:  [nCroodLng,nCroodLat],
-    //   duration: outsideMoveDuration,
-    // });
+    map.getView().animate({
+      center: [nCroodLng, nCroodLat],
+      duration: outsideMoveDuration,
+    })
 
     // 绘制中隐藏绘制线
     // 点更新位置
-
-},outsideMoveDuration,{
-  leading: false
-})
-function mouseLeaveCb(ins,e) {
+  },
+  outsideMoveDuration,
+  {
+    leading: false,
+  }
+)
+function mouseLeaveCb(ins, e) {
   ins.outsideViewportDrawing = true
   // ins.changed() // 不一定执行
   ins.getOverlay().changed() // 一定执行
-  
-  function step () {
-    moveThrottle(e,ins)
-    ins.timer = window.requestAnimationFrame(step);
+
+  function step() {
+    moveThrottle(e, ins)
+    ins.timer = window.requestAnimationFrame(step)
   }
-  ins.timer = window.requestAnimationFrame(step);
+  ins.timer = window.requestAnimationFrame(step)
 }
 function mouseEnterCb(ins) {
   ins.outsideViewportDrawing = false
   ins.getOverlay().changed() // 一定执行
 
-  if(ins.timer) {
+  if (ins.timer) {
     cancelAnimationFrame(ins.timer)
     ins.timer = null
   }
@@ -460,19 +447,20 @@ function mouseEnterCb(ins) {
 
 // BDModify
 class BDModify extends Modify {
-  constructor(opts){
+  constructor(opts) {
     super(opts)
+    this.on('modifystart',()=>{
+      console.log('ms');
+    })
   }
   handlePointerAtPixel_(pixel, map, opt_coordinate) {
-
-
     super.handlePointerAtPixel_(pixel, map, opt_coordinate)
     /**
      * 源码方法拓展
      */
-    if(this.vertexFeature_) {
+    if (this.vertexFeature_) {
       let style = this.overlay_.getStyle()
-      if(this.snappedToVertex_) {
+      if (this.snappedToVertex_) {
         // 靠近节点 修改modify 提示
         style.setText(modifyStyleText('拖拽节点修改'))
       } else {
@@ -482,4 +470,4 @@ class BDModify extends Modify {
     }
   }
 }
-export default BDDraw 
+export default BDDraw
