@@ -1,7 +1,7 @@
 import { map, throttle } from 'lodash'
 import GeometryType from 'ol/geom/geometrytype'
 import { Draw, Modify, Select } from 'ol/interaction'
-import {LineString, Point} from 'ol/geom';
+import {LineString, Point, Polygon} from 'ol/geom';
 import {getArea, getLength} from 'ol/sphere';
 import {
   Circle as CircleStyle,
@@ -13,19 +13,8 @@ import {
 } from 'ol/style';
 import VectorSource from 'ol/source/vector'
 import VectorLayer from 'ol/layer/vector'
-import { DrawLine, DrawPolygon } from './DrawShape'
+import { MeasureLine, MeasurePolygon } from './MeasureShape'
 import EventType from 'ol/src/events/EventType'
-/**
- * Draw mode.  This collapses multi-part geometry types with their single-part
- * cousins.
- * @enum {string}
- */
-const Mode = {
-  POINT: 'Point',
-  LINE_STRING: 'LineString',
-  POLYGON: 'Polygon',
-  CIRCLE: 'Circle',
-};
 
 // 仿web百度地图交互 拓展class
 function styleFunction({feature, segments, drawType, tip,tag,ins}={}) {
@@ -116,27 +105,27 @@ function styleFunction({feature, segments, drawType, tip,tag,ins}={}) {
       } else {
         segmentDrawingLines[count].setStroke(lineStroke)
 
-        segmentStyles[count].setText(new Text({
-          font: '12px Calibri,sans-serif',
-          fill: new Fill({
-            color: 'rgba(255, 255, 255, 1)',
-          }),
-          backgroundFill: new Fill({
-            color: 'rgba(0, 0, 0, 0.4)',
-          }),
-          padding: [2, 2, 2, 2],
-          textBaseline: 'bottom',
-          offsetY: -12,
-        }))
-        segmentStyles[count].setImage(new RegularShape({
-          radius: 6,
-          points: 3,
-          angle: Math.PI,
-          displacement: [0, 8],
-          fill: new Fill({
-            color: 'rgba(0, 0, 0, 0.4)',
-          }),
-        }))
+        // segmentStyles[count].setText(new Text({
+        //   font: '12px Calibri,sans-serif',
+        //   fill: new Fill({
+        //     color: 'rgba(255, 255, 255, 1)',
+        //   }),
+        //   backgroundFill: new Fill({
+        //     color: 'rgba(0, 0, 255, 0.4)',
+        //   }),
+        //   padding: [2, 2, 2, 2],
+        //   textBaseline: 'bottom',
+        //   offsetY: -12,
+        // }))
+        // segmentStyles[count].setImage(new RegularShape({
+        //   radius: 6,
+        //   points: 3,
+        //   angle: Math.PI,
+        //   displacement: [0, 8],
+        //   fill: new Fill({
+        //     color: 'rgba(0, 0, 0, 0.4)',
+        //   }),
+        // }))
       }
 
       const segmentPoint = new Point(segment.getCoordinateAt(0.5));
@@ -149,22 +138,7 @@ function styleFunction({feature, segments, drawType, tip,tag,ins}={}) {
 
       count++;
     });
-
   }
-  if (label) {
-    // labelStyle.setGeometry(point);
-    // labelStyle.getText().setText(label);
-    // styles.push(labelStyle);
-  }
-  // if (
-  //   tip &&
-  //   type === 'Point' &&
-  //   !modify.getOverlay().getSource().getFeatures().length
-  // ) {
-  //   tipPoint = geometry;
-  //   tipStyle.getText().setText(tip);
-  //   styles.push(tipStyle);
-  // }
   return styles;
 }
 
@@ -189,29 +163,30 @@ const formatArea = function (polygon) {
   }
   return output;
 };
-const modifyStyle = new Style({
-  image: new CircleStyle({
-    radius: 5,
-    stroke: new Stroke({
-      color: 'rgba(0, 0, 0, 0.7)',
-    }),
-    fill: new Fill({
-      color: 'rgba(0, 0, 0, 0.4)',
-    }),
-  }),
-  text: new Text({
-    text: 'Drag to modify',
+const modifyStyleText = (tips = '单击新增节点') => new Text({
+    text: tips,
     font: '12px Calibri,sans-serif',
     fill: new Fill({
-      color: 'rgba(255, 255, 255, 1)',
+      color: 'rgba(51, 51, 51, 1)',
     }),
     backgroundFill: new Fill({
-      color: 'rgba(0, 0, 0, 0.7)',
+      color: 'rgba(255,255,255,1)',
     }),
     padding: [2, 2, 2, 2],
     textAlign: 'left',
     offsetX: 15,
+  })
+const modifyStyle = new Style({
+  image: new CircleStyle({
+    radius: 5,
+    stroke: new Stroke({
+      color: 'rgba(255, 111, 0, 0.7)',
+    }),
+    fill: new Fill({
+      color: 'rgba(255, 111, 0, 0.4)',
+    }),
   }),
+  text: modifyStyleText()
 });
 const labelStyle = new Style({
   text: new Text({
@@ -237,13 +212,14 @@ const labelStyle = new Style({
   }),
 });
 const segmentStyle = new Style({
+  zIndex: 100,
   text: new Text({
     font: '12px Calibri,sans-serif',
     fill: new Fill({
-      color: 'rgba(255, 255, 255, 1)',
+      color: 'rgba(51, 51, 51, 0.7)',
     }),
     backgroundFill: new Fill({
-      color: 'rgba(0, 0, 0, 0.4)',
+      color: 'rgba(255, 255, 255, 1.0)',
     }),
     padding: [2, 2, 2, 2],
     textBaseline: 'bottom',
@@ -255,14 +231,13 @@ const segmentStyle = new Style({
     angle: Math.PI,
     displacement: [0, 8],
     fill: new Fill({
-      color: 'rgba(0, 0, 0, 0.4)',
+      color: 'rgba(255, 255, 255, 1.0)',
     }),
   }),
-});
+})
 const lineStroke = new Stroke({
-  color: 'rgba(100, 255, 0, 1)',
-  lineDash: [10, 10],
-  width: 2,
+  color: 'rgba(255,111,0, .8)',
+  width: 3,
 })
 const segmentDrawingLineStyle = new Style({
   zIndex: 100,
@@ -287,6 +262,7 @@ class BDDraw extends Draw {
   timer = null
   map = null
   options = {}
+  modify = null
   constructor(options) {
     let isSegmentShow = options.segments_ == void 0 || options.segments_
     options.source = source
@@ -301,7 +277,7 @@ class BDDraw extends Draw {
     this.segments_ = isSegmentShow
     this.options = options
     if(!modify) {
-      modify = new Modify({source: this.source_, style: modifyStyle});
+      modify = new BDModify({source: this.source_, style: modifyStyle});
       this.modify = modify
     }
     this.modify = modify
@@ -324,13 +300,18 @@ class BDDraw extends Draw {
         viewPort.addEventListener('mouseenter',mouseEnterExtend)
 
         if(ins.type_ === GeometryType.LINE_STRING) {
-          ins.shapes.push(new DrawLine({feature:evt.feature,draw: ins}))
+          ins.shapes.push(new MeasureLine({feature:evt.feature,draw: ins}))
         } else if(ins.type_ === GeometryType.POLYGON) {
-          ins.shapes.push(new DrawPolygon({feature:evt.feature,draw: ins}))
+          ins.shapes.push(new MeasurePolygon({feature:evt.feature,draw: ins}))
         }
       })
   
       this.on('drawend', function() {
+        let shape = ins.shapes.slice(-1)[0]
+        if(shape) {
+          // 绘制完成添加绘图删除按键
+          map.addOverlay(shape.delOverlay)
+        }
         ins.drawing = false
         viewPort.removeEventListener('mouseleave',mouseLeaveExtend)
         viewPort.removeEventListener('mouseenter',mouseEnterExtend)
@@ -349,6 +330,9 @@ class BDDraw extends Draw {
         map.addLayer(this.mapLayer_)
       }
       map.addInteraction(modify)
+      map.on('contextmenu',BDDraw.handleContextmenu)
+    } else {
+      map.un('contextmenu',BDDraw.handleContextmenu)
     }
     super.setMap(map);
   }
@@ -357,9 +341,11 @@ class BDDraw extends Draw {
   // event.type [pointdown,pointup,pointmove,click,dbclick]
   handleEvent(event) {
     if(event.type == EventType.CONTEXTMENU && this.drawing){
+      console.log(event.type);
+      console.log(event);
       // 右键修改为取消现在的点 并绘制完成
-      event.originalEvent.preventDefault(); // 无效,还是会多一个点,需要removeLastPoint
-      event.originalEvent.stopPropagation();// 无效,还是会多一个点,需要removeLastPoint
+      event.preventDefault(); // 无效,还是会多一个点,需要removeLastPoint
+      event.stopPropagation();// 无效,还是会多一个点,需要removeLastPoint
       this.cancelDrawing()
 
       return
@@ -380,6 +366,8 @@ class BDDraw extends Draw {
         shape.nodes.forEach((n)=>{
           map.removeOverlay(n.overlay)
         })
+        map.removeOverlay(shape.label)
+        map.removeOverlay(shape.delOverlay)
       } else {
         this.finishDrawing()
       }
@@ -391,6 +379,8 @@ class BDDraw extends Draw {
         shape.nodes.forEach((n)=>{
           map.removeOverlay(n.overlay)
         })
+        map.removeOverlay(shape.label)
+        map.removeOverlay(shape.delOverlay)
       } else {
         this.finishDrawing()
       }
@@ -410,10 +400,20 @@ class BDDraw extends Draw {
       this.shapes.splice(index,1)
     }
   }
+  setModifyActive(active) {
+    if(this.modify) {
+      this.modify.setActive(active)
+    }
+  }
+  static handleContextmenu(e) {
+    // console.log('handleContextmenu',e);
+    // e.stopPropagation()
+    // e.preventDefault()
+  }
 }
 const outsideMoveDuration = 100 // 鼠标在地图外 使地图移动的动画过渡时间
 let moveThrottle = throttle((e,ins)=>{
-    const map = ins.getMap()
+    const map = ins.map
     let leavePixel = map.getEventPixel(e),
         leaveCoord = map.getCoordinateFromPixel(leavePixel)
   
@@ -457,27 +457,29 @@ function mouseEnterCb(ins) {
     ins.timer = null
   }
 }
-/**
- * Get the drawing mode.  The mode for mult-part geometries is the same as for
- * their single-part cousins.
- * @param {import("../geom/GeometryType.js").default} type Geometry type.
- * @return {Mode} Drawing mode.
- */
-function getMode(type) {
-  switch (type) {
-    case GeometryType.POINT:
-    case GeometryType.MULTI_POINT:
-      return Mode.POINT;
-    case GeometryType.LINE_STRING:
-    case GeometryType.MULTI_LINE_STRING:
-      return Mode.LINE_STRING;
-    case GeometryType.POLYGON:
-    case GeometryType.MULTI_POLYGON:
-      return Mode.POLYGON;
-    case GeometryType.CIRCLE:
-      return Mode.CIRCLE;
-    default:
-      throw new Error('Invalid type: ' + type);
+
+// BDModify
+class BDModify extends Modify {
+  constructor(opts){
+    super(opts)
+  }
+  handlePointerAtPixel_(pixel, map, opt_coordinate) {
+
+
+    super.handlePointerAtPixel_(pixel, map, opt_coordinate)
+    /**
+     * 源码方法拓展
+     */
+    if(this.vertexFeature_) {
+      let style = this.overlay_.getStyle()
+      if(this.snappedToVertex_) {
+        // 靠近节点 修改modify 提示
+        style.setText(modifyStyleText('拖拽节点修改'))
+      } else {
+        // 复原 modify 提示
+        style.setText(modifyStyleText('点击添加节点'))
+      }
+    }
   }
 }
 export default BDDraw 

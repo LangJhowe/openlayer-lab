@@ -1,4 +1,5 @@
 import 'ol/ol.css';
+import './ol.scss'
 import Map from 'ol/Map';
 import View from 'ol/View';
 import {
@@ -19,7 +20,6 @@ import ruler from 'url:./ruler.cur'
 const typeSelect = document.getElementById('type');
 const showSegments = document.getElementById('segments');
 const clearPrevious = document.getElementById('clear');
-
 
 const raster = new TileLayer({
   source: new OSM(),
@@ -88,5 +88,6 @@ measureStart.addEventListener('click',()=>{
     addInteraction()
   }
   mesauring = !mesauring
+  draw.setModifyActive(mesauring)
   measureStart.innerHTML = mesauring ? '结束绘制':'开始绘制'
 })
