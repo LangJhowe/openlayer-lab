@@ -79,6 +79,23 @@ const viewPort = map.getViewport()
 let measureStart = document.getElementById('measure-start-btn')
 let mesauring = false
 measureStart.addEventListener('click',()=>{
+  // if(mesauring) {
+  //   draw.finishDrawing()
+  //   draw.setActive(false)
+  //   viewPort.style.cursor = ``
+  // } else {
+  //   const drawType = typeSelect.value;
+  //   viewPort.style.cursor = `url(${ruler}),auto` // 鼠标尺图
+  //   if(draw){
+  //     if(drawType === draw.type) {
+  //       draw.setActive(true)
+  //     } else {
+  //       addInteraction()
+  //     }
+  //   } else {
+  //       addInteraction()
+  //   }
+  // }
   if(mesauring) {
     draw.finishDrawing()
     map.removeInteraction(draw);
@@ -88,6 +105,6 @@ measureStart.addEventListener('click',()=>{
     addInteraction()
   }
   mesauring = !mesauring
-  draw.setModifyActive(mesauring)
+  // draw.setModifyActive(mesauring)
   measureStart.innerHTML = mesauring ? '结束绘制':'开始绘制'
 })

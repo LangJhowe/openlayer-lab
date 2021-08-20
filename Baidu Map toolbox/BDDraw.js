@@ -2,7 +2,7 @@ import { throttle } from 'lodash'
 import GeometryType from 'ol/geom/GeometryType'
 import { Draw, Modify } from 'ol/interaction'
 import { LineString, Point } from 'ol/geom'
-import { getArea, getLength } from 'ol/sphere'
+import { getLength } from 'ol/sphere'
 import { Circle as CircleStyle, Fill, RegularShape, Stroke, Style, Text } from 'ol/style'
 import { Vector as VectorLayer } from 'ol/layer'
 import { Vector as VectorSource } from 'ol/source'
@@ -10,20 +10,29 @@ import { MeasureLine, MeasurePolygon } from './MeasureShape'
 import EventType from 'ol/src/events/EventType'
 GeometryType
 // 仿web百度地图交互 拓展class
-function styleFunction({ feature, segments, drawType, tip, tag, ins } = {}) {
+const lineCapStyle = new Style({
+  zIndex: 100,
+  image: new CircleStyle({
+    radius: 5,
+    stroke: new Stroke({
+      color: 'rgba(255, 111, 0, 1.0)',
+    }),
+    fill: new Fill({
+      color: 'rgba(255, 255, 255, 1.0)',
+    }),
+  }),
+})
+function styleFunction({ feature, segments, drawType, ins } = {}) {
   let { segmentStyles, segmentDrawingLines } = ins
   const styles = []
+  const lineCapStyles = [lineCapStyle]
   const geometry = feature.getGeometry()
   const type = geometry.getType()
-  let point, label, line
+  let line
   if (!drawType || drawType === type) {
     if (type === 'Polygon') {
-      point = geometry.getInteriorPoint()
-      label = formatArea(geometry)
       line = new LineString(geometry.getCoordinates()[0])
     } else if (type === 'LineString') {
-      point = new Point(geometry.getLastCoordinate())
-      label = formatLength(geometry)
       line = geometry
     }
   }
@@ -36,85 +45,108 @@ function styleFunction({ feature, segments, drawType, tip, tag, ins } = {}) {
         segmentStyles.push(segmentStyle.clone())
         segmentDrawingLines.push(segmentDrawingLineStyle.clone())
       }
+      if (lineCapStyles.length - 1 < count) {
+        lineCapStyles.push(lineCapStyle.clone())
+      }
+      const lineCapPointStart = new Point(segment.getCoordinateAt(0)) // 线段起点
+      lineCapPointStart.setProperties({
+        name: 'Point',
+      })
+      lineCapStyles[count].setGeometry(lineCapPointStart)
+
       if (ins.outsideViewportDrawing) {
-        // if(count == line.flatCoordinates.length/2 - 2) {
-        //   // 绘制最后一条边 颜色改变(百度交互,隐藏)
-        //   segmentDrawingLines[count].setStroke(new Stroke({
-        //     color: 'rgba(0, 0, 0, 0)',
-        //     lineDash: [10, 10],
-        //     width: 2,
-        //   }))
-        //   segmentStyles[count].setText(new Text({
-        //     font: '12px Calibri,sans-serif',
-        //     fill: new Fill({
-        //       color: 'rgba(255, 255, 255, 0)',
-        //     }),
-        //     backgroundFill: new Fill({
-        //       color: 'rgba(0, 0, 0, 0)',
-        //     }),
-        //     padding: [2, 2, 2, 2],
-        //     textBaseline: 'bottom',
-        //     offsetY: -12,
-        //   }))
-        //   segmentStyles[count].setImage(new RegularShape({
-        //     radius: 6,
-        //     points: 3,
-        //     angle: Math.PI,
-        //     displacement: [0, 8],
-        //     fill: new Fill({
-        //       color: 'rgba(0, 0, 0, 0)',
-        //     }),
-        //   }))
-        // } else {
-        //   // 其他边,重新设为默认值
-        //   segmentDrawingLines[count].setStroke(lineStroke)
-        //   segmentStyles[count].setText(new Text({
-        //     font: '12px Calibri,sans-serif',
-        //     fill: new Fill({
-        //       color: 'rgba(255, 255, 255, 1)',
-        //     }),
-        //     backgroundFill: new Fill({
-        //       color: 'rgba(0, 0, 0, 0.4)',
-        //     }),
-        //     padding: [2, 2, 2, 2],
-        //     textBaseline: 'bottom',
-        //     offsetY: -12,
-        //   }))
-        //   segmentStyles[count].setImage(new RegularShape({
-        //     radius: 6,
-        //     points: 3,
-        //     angle: Math.PI,
-        //     displacement: [0, 8],
-        //     fill: new Fill({
-        //       color: 'rgba(0, 0, 0, 0.4)',
-        //     }),
-        //   }))
-        // }
+        if (count == line.flatCoordinates.length / 2 - 2) {
+          // 绘制最后一条边 颜色改变(百度交互,隐藏)
+          segmentDrawingLines[count].setStroke(
+            new Stroke({
+              color: 'rgba(0, 0, 0, 0)',
+              lineDash: [10, 10],
+              width: 2,
+            })
+          )
+          segmentStyles[count].setText(
+            new Text({
+              font: '12px Calibri,sans-serif',
+              fill: new Fill({
+                color: 'rgba(255, 255, 255, 0)',
+              }),
+              backgroundFill: new Fill({
+                color: 'rgba(0, 0, 0, 0)',
+              }),
+              padding: [2, 2, 2, 2],
+              textBaseline: 'bottom',
+              offsetY: -12,
+            })
+          )
+          segmentStyles[count].setImage(
+            new RegularShape({
+              radius: 6,
+              points: 3,
+              angle: Math.PI,
+              displacement: [0, 8],
+              fill: new Fill({
+                color: 'rgba(0, 0, 0, 0)',
+              }),
+            })
+          )
+        } else {
+          // 其他边,重新设为默认值
+          segmentDrawingLines[count].setStroke(lineStroke)
+          segmentStyles[count].setText(
+            new Text({
+              font: '12px Calibri,sans-serif',
+              fill: new Fill({
+                color: 'rgba(51, 51, 51, 0.7)',
+              }),
+              backgroundFill: new Fill({
+                color: 'rgba(255,255,255,1)',
+              }),
+              padding: [2, 2, 2, 2],
+              textBaseline: 'bottom',
+              offsetY: -12,
+            })
+          )
+          segmentStyles[count].setImage(
+            new RegularShape({
+              radius: 6,
+              points: 3,
+              angle: Math.PI,
+              displacement: [0, 8],
+              fill: new Fill({
+                color: 'rgba(255,255,255,1)',
+              }),
+            })
+          )
+        }
         // 最后一个边距隐藏
       } else {
         segmentDrawingLines[count].setStroke(lineStroke)
 
-        // segmentStyles[count].setText(new Text({
-        //   font: '12px Calibri,sans-serif',
-        //   fill: new Fill({
-        //     color: 'rgba(255, 255, 255, 1)',
-        //   }),
-        //   backgroundFill: new Fill({
-        //     color: 'rgba(0, 0, 255, 0.4)',
-        //   }),
-        //   padding: [2, 2, 2, 2],
-        //   textBaseline: 'bottom',
-        //   offsetY: -12,
-        // }))
-        // segmentStyles[count].setImage(new RegularShape({
-        //   radius: 6,
-        //   points: 3,
-        //   angle: Math.PI,
-        //   displacement: [0, 8],
-        //   fill: new Fill({
-        //     color: 'rgba(0, 0, 0, 0.4)',
-        //   }),
-        // }))
+        segmentStyles[count].setText(
+          new Text({
+            font: '12px Calibri,sans-serif',
+            fill: new Fill({
+              color: 'rgba(51, 51, 51, 0.7)',
+            }),
+            backgroundFill: new Fill({
+              color: 'rgba(255,255,255,1)',
+            }),
+            padding: [2, 2, 2, 2],
+            textBaseline: 'bottom',
+            offsetY: -12,
+          })
+        )
+        segmentStyles[count].setImage(
+          new RegularShape({
+            radius: 6,
+            points: 3,
+            angle: Math.PI,
+            displacement: [0, 8],
+            fill: new Fill({
+              color: 'rgba(255,255,255,1)',
+            }),
+          })
+        )
       }
 
       const segmentPoint = new Point(segment.getCoordinateAt(0.5))
@@ -124,9 +156,14 @@ function styleFunction({ feature, segments, drawType, tip, tag, ins } = {}) {
       segmentDrawingLines[count].setGeometry(segment)
       styles.push(segmentDrawingLines[count]) // 线段
       styles.push(segmentStyles[count]) // 线段文本
-
+      styles.push(lineCapStyles[count])
       count++
     })
+    // 线段尾节点
+    const lineEndLineCap = new Point(line.getLastCoordinate())
+    lineCapStyles.push(lineCapStyle.clone())
+    lineCapStyles[count].setGeometry(lineEndLineCap)
+    styles.push(lineCapStyles[count])
   }
   return styles
 }
@@ -138,17 +175,6 @@ const formatLength = function (line) {
     output = Math.round((length / 1000) * 100) / 100 + ' km'
   } else {
     output = Math.round(length * 100) / 100 + ' m'
-  }
-  return output
-}
-
-const formatArea = function (polygon) {
-  const area = getArea(polygon)
-  let output
-  if (area > 10000) {
-    output = Math.round((area / 1000000) * 100) / 100 + ' km\xB2'
-  } else {
-    output = Math.round(area * 100) / 100 + ' m\xB2'
   }
   return output
 }
@@ -177,29 +203,6 @@ const modifyStyle = new Style({
     }),
   }),
   text: modifyStyleText(),
-})
-const labelStyle = new Style({
-  text: new Text({
-    font: '14px Calibri,sans-serif',
-    fill: new Fill({
-      color: 'rgba(255, 255, 255, 1)',
-    }),
-    backgroundFill: new Fill({
-      color: 'rgba(0, 0, 0, 0.7)',
-    }),
-    padding: [3, 3, 3, 3],
-    textBaseline: 'bottom',
-    offsetY: -15,
-  }),
-  image: new RegularShape({
-    radius: 8,
-    points: 3,
-    angle: Math.PI,
-    displacement: [0, 10],
-    fill: new Fill({
-      color: 'rgba(0, 0, 0, 0.7)',
-    }),
-  }),
 })
 const segmentStyle = new Style({
   zIndex: 100,
@@ -253,16 +256,16 @@ class BDDraw extends Draw {
   map = null
   options = {}
   modify = null
+  drawingShape = null
   constructor(options) {
     let isSegmentShow = options.segments_ == void 0 || options.segments_
     options.source = source
     if (!options.style) {
-      options.style = function (feature) {
-        return styleFunction({ feature, segments: isSegmentShow, tag: 'drawStyleFunction', ins })
+      options.style = (feature) => {
+        return styleFunction({ feature, segments: isSegmentShow, tag: 'drawStyleFunction', ins: this })
       }
     }
     super(options)
-    let ins = this
     this.isSegmentShow = isSegmentShow
     this.segments_ = isSegmentShow
     this.options = options
@@ -281,28 +284,31 @@ class BDDraw extends Draw {
       this.map = map
       // 事件
       let viewPort = map.getViewport()
-      let ins = this
-      let mouseLeaveExtend = mouseLeaveCb.bind(null, ins),
-        mouseEnterExtend = mouseEnterCb.bind(null, ins)
-      this.on('drawstart', function (evt) {
-        ins.drawing = true
+      viewPort.classList.add('ol-viewport--drawing')
+      let mouseLeaveExtend = mouseLeaveCb.bind(null, this),
+        mouseEnterExtend = mouseEnterCb.bind(null, this)
+      this.on('drawstart', (evt) => {
+        this.drawing = true
         viewPort.addEventListener('mouseleave', mouseLeaveExtend)
         viewPort.addEventListener('mouseenter', mouseEnterExtend)
 
-        if (ins.type_ === GeometryType.LINE_STRING) {
-          ins.shapes.push(new MeasureLine({ feature: evt.feature, draw: ins }))
-        } else if (ins.type_ === GeometryType.POLYGON) {
-          ins.shapes.push(new MeasurePolygon({ feature: evt.feature, draw: ins }))
+        let shape
+        if (this.type_ === GeometryType.LINE_STRING) {
+          shape = new MeasureLine({ feature: evt.feature, draw: this })
+        } else if (this.type_ === GeometryType.POLYGON) {
+          shape = new MeasurePolygon({ feature: evt.feature, draw: this })
         }
+        this.shapes.push(shape)
+        this.drawingShape = shape
       })
 
-      this.on('drawend', function () {
-        let shape = ins.shapes.slice(-1)[0]
-        if (shape) {
+      this.on('drawend', () => {
+        if (this.drawingShape) {
           // 绘制完成添加绘图删除按键
-          map.addOverlay(shape.delOverlay)
+          map.addOverlay(this.drawingShape.delOverlay)
         }
-        ins.drawing = false
+        this.drawingShape = null
+        viewPort.classList.remove('ol-viewport--drawing')
         viewPort.removeEventListener('mouseleave', mouseLeaveExtend)
         viewPort.removeEventListener('mouseenter', mouseEnterExtend)
       })
@@ -310,30 +316,33 @@ class BDDraw extends Draw {
       // 地图添加 图层
       if (!mapLayer) {
         mapLayer = new VectorLayer({
+          zIndex: 100,
           source: this.source_,
-          style: function (feature) {
-            return styleFunction({ feature, segments: ins.isSegmentShow, tag: 'layerStyleFunction', ins })
+          style: (feature) => {
+            return styleFunction({ feature, segments: this.isSegmentShow, tag: 'layerStyleFunction', ins: this })
           },
           ...this.options.mapLayerOpts,
         })
         this.mapLayer_ = mapLayer
-        console.log('%c 🍆 map: ', 'font-size:20px;background-color: #465975;color:#fff;', map)
         map.addLayer(this.mapLayer_)
       }
-      // map.addInteraction(modify)
+      // 交互优化
+      // 图形支持随时修改
+      map.addInteraction(modify)
     }
     super.setMap(map)
   }
 
   // overwrite
-  // event.type [pointdown,pointup,pointmove,click,dbclick]
+  // event.type [pointerdown,pointerup,pointermove,click,dbclick]
   handleEvent(event) {
+    if (event.type !== 'pointermove') {
+      console.log('%c 🍭 event: ', 'font-size:20px;background-color: #7F2B82;color:#fff;', event)
+    }
     if (event.type == EventType.CONTEXTMENU && this.drawing) {
-      console.log(event.type)
-      console.log(event)
       // 右键修改为取消现在的点 并绘制完成
-      event.preventDefault() // 无效,还是会多一个点,需要removeLastPoint
-      event.stopPropagation() // 无效,还是会多一个点,需要removeLastPoint
+      // event.preventDefault() // 无效,还是会多一个点,需要removeLastPoint
+      // event.stopPropagation() // 无效,还是会多一个点,需要removeLastPoint
       this.cancelDrawing()
 
       return
@@ -394,10 +403,14 @@ class BDDraw extends Draw {
       this.modify.setActive(active)
     }
   }
+  finishDrawing() {
+    this.drawing = false
+    super.finishDrawing()
+  }
 }
 const outsideMoveDuration = 100 // 鼠标在地图外 使地图移动的动画过渡时间
 let moveThrottle = throttle(
-  (e, ins) => {
+  (e, ins, leaveMomentPixel) => {
     const map = ins.map
     let leavePixel = map.getEventPixel(e),
       leaveCoord = map.getCoordinateFromPixel(leavePixel)
@@ -417,7 +430,7 @@ let moveThrottle = throttle(
     })
 
     // 绘制中隐藏绘制线
-    // 点更新位置
+    // 最后一点更新位置（暂无法实现，在mouseLeaveCb step中更新geometry坐标点无效果）
   },
   outsideMoveDuration,
   {
@@ -428,9 +441,34 @@ function mouseLeaveCb(ins, e) {
   ins.outsideViewportDrawing = true
   // ins.changed() // 不一定执行
   ins.getOverlay().changed() // 一定执行
+  const map = ins.map
+  let leaveMomentPixel = map.getEventPixel(e)
+  let drawingShape = ins.drawingShape,
+    geo = drawingShape.feature.getGeometry()
 
   function step() {
-    moveThrottle(e, ins)
+    if (drawingShape) {
+      let coords = geo.getCoordinates(),
+        outCoord = map.getCoordinateFromPixel(leaveMomentPixel),
+        lastCoord = []
+      if (drawingShape.type === GeometryType.LINE_STRING) {
+        lastCoord = coords.slice(-1)[0]
+      } else if (drawingShape.type === GeometryType.POLYGON) {
+        lastCoord = coords[0].slice(-2, -1)[0]
+      }
+      lastCoord[0] = outCoord[0]
+      lastCoord[1] = outCoord[1]
+      geo.setCoordinates(coords)
+      drawingShape.feature.setGeometry(geo)
+      drawingShape.feature.changed()
+      if (ins.type === GeometryType.LINE_STRING) {
+        drawingShape.label.setPosition(lastCoord)
+      } else {
+        let pos = geo.getInteriorPoint().getCoordinates()
+        drawingShape.label.setPosition(pos)
+      }
+    }
+    moveThrottle(e, ins, leaveMomentPixel)
     ins.timer = window.requestAnimationFrame(step)
   }
   ins.timer = window.requestAnimationFrame(step)
@@ -449,9 +487,6 @@ function mouseEnterCb(ins) {
 class BDModify extends Modify {
   constructor(opts) {
     super(opts)
-    this.on('modifystart',()=>{
-      console.log('ms');
-    })
   }
   handlePointerAtPixel_(pixel, map, opt_coordinate) {
     super.handlePointerAtPixel_(pixel, map, opt_coordinate)
